@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Machine Telemetry</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+    /* --- THEME VARIABLES --- */
+    :root {
+        --bg-color: #0b0f1a;
+        --card-bg: #161e2e;
+        --card-border: #2d3748;
+        --text-main: #f8fafc;
+        --text-muted: #94a3b8;
+        --accent: #3b82f6;
+        --param-bg: rgba(0, 0, 0, 0.2);
+        --modal-bg: #161e2e;
+        --border-sep: #2d3748;
+    }
+
+    /* --- LIGHT MODE OVERRIDES --- */
+    body.light-mode {
+        --bg-color: #f1f5f9;
+        --card-bg: #ffffff;
+        --card-border: #cbd5e1;
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+        --accent: #2563eb;
+        --param-bg: #f8fafc;
+        --modal-bg: #ffffff;
+        --border-sep: #e2e8f0;
+    }
+
+    body { 
+        background-color: var(--bg-color); 
+        color: var(--text-main); 
+        font-family: 'Inter', sans-serif; 
+        transition: background-color 0.3s ease; 
+    }
+
+    /* --- BLINKING ANIMATIONS (FIXED) --- */
+    @keyframes pulse-red {
+        0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); border-color: #ef4444; }
+        50% { box-shadow: 0 0 20px 5px rgba(239, 68, 68, 0.3); border-color: #f87171; background: rgba(239, 68, 68, 0.1); }
+        100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); border-color: #ef4444; }
+    }
+
+    @keyframes pulse-orange {
+        0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); border-color: #f59e0b; }
+        50% { box-shadow: 0 0 15px 5px rgba(245, 158, 11, 0.3); border-color: #fbbf24; background: rgba(245, 158, 11, 0.1); }
+        100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); border-color: #f59e0b; }
+    }
+
+    .alarm-critical { animation: pulse-red 1.5s infinite !important; }
+    .alarm-warning { animation: pulse-orange 2s infinite !important; }
+
+    /* --- GRID & CARD STYLING --- */
+    .compact-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
+        gap: 12px;
+        padding: 10px;
+    }
+
+    .micro-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 10px;
+        position: relative;
+        transition: all 0.2s ease;
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .micro-card:hover {
+        transform: scale(1.05);
+        z-index: 100;
+        border-color: var(--accent);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+
+    /* --- TITLES & TEXT --- */
+    .micro-title {
+        font-size: 0.75rem;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--text-main);
+    }
+
+    .micro-param {
+        font-size: 0.65rem;
+        color: var(--text-muted);
+        margin: 0;
+    }
+
+    .micro-value {
+        font-size: 0.7rem;
+        color: var(--accent);
+        font-weight: bold;
+    }
+
+    /* --- PARAMETER ROTATION (NO SHAKE) --- */
+    .param-holder {
+        position: relative;
+        min-height: 52px; 
+        overflow: hidden;
+        margin: 5px 0;
+    }
+
+    .param-box {
+        background: var(--param-bg);
+        padding: 4px 8px;
+        border-radius: 6px;
+        border: 1px solid var(--card-border);
+    }
+
+    .rotating-param {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.4s ease-in-out, visibility 0.4s;
+        display: flex !important;
+    }
+
+    .rotating-param.pos-2 {
+        top: 26px; /* Row 2 spacing */
+    }
+
+    .rotating-param.active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    /* --- STATUS DOTS --- */
+    .dot-online { background-color: #22c55e; box-shadow: 0 0 5px #22c55e; }
+    .dot-offline { background-color: #94a3b8; }
+
+    /* --- HELPERS --- */
+    .border-top { border-top: 1px solid var(--border-sep) !important; }
+    .text-primary { color: var(--accent) !important; }
+    .hover-underline:hover { text-decoration: underline !important; }
+</style>
+</head>
+<body>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 px-3">
+        <h2 class="fw-bold"><i class="bi bi-shield-exclamation me-2 text-danger"></i>Live Machine Monitor</h2>
+        <!-- <button class="btn btn-outline-light btn-sm"><i class="bi bi-file-earmark-bar-graph me-2"></i>Download Alarm Report</button> -->
+         <button class="btn btn-sm btn-outline-secondary" onclick="toggleTheme()">
+            <i class="bi bi-brightness-high"></i> Toggle Light/Dark
+        </button>
+    </div>
+
+    <div class="compact-grid">
+    {% for m in machines %}
+    <div class="micro-card {% if m.highest_alarm_priority == 1 %}alarm-critical{% elif m.highest_alarm_priority == 2 %}alarm-warning{% endif %}">
+        
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="micro-title">{{ m.name }}</span>
+            <span class="dot {% if m.is_online %}dot-online{% else %}dot-offline{% endif %}" style="width: 6px; height: 6px;"></span>
+        </div>
+
+        <div class="py-1 param-holder" data-machine-id="{{ m.id }}">
+    {% for p in m.parameters %}
+    <div class="param-box rotating-param justify-content-between align-items-center">
+        <span class="micro-param">{{ p.label }}</span>
+        <span class="micro-value">{{ p.value }}{{ p.unit|default:"" }}</span>
+    </div>
+    {% endfor %}
+</div>
+
+        <div class="d-flex justify-content-between align-items-center">
+            {% if m.parameters|length > 2 %}
+            <div class="d-flex align-items-center">
+                <a href="javascript:void(0)" 
+                    onclick="openParamModal({{ m.id }})" 
+                    class="text-primary micro-param fw-bold text-decoration-none hover-underline">
+                    + {{ m.parameters|length|add:"-2" }} more...
+                </a>
+            </div>
+            {% endif %}
+            {% if m.alarms|length > 0 %}
+            <div class="d-flex justify-content-end align-items-center">
+                <a href="javascript:void(0)" 
+                    onclick="openAlarmModel({{ m.id }})" 
+                    class="text-primary micro-param fw-bold text-decoration-none hover-underline">
+                    + {{ m.alarms|length }} Alarms
+                </a>
+            </div>
+            {% endif %}
+            {% if m.alarms|length == 0 %}
+            <a href="javascript:void(0)" 
+                onclick="openAlarmModel({{ m.id }})" 
+                class="text-primary micro-param fw-bold text-decoration-none hover-underline">
+                No Alarms
+            </a>
+            {% endif %}
+        </div>
+
+        <div class="d-flex justify-content-center mt-1 border-top pt-1">
+            <!-- <a href="javascript:void(0)" onclick="openLogModal({{ m.id }})" class="text-info small">
+                <i class="bi bi-list-ul"></i>
+            </a> -->
+            <a href="{% url 'machine_config' m.id %}" class="text-primary micro-param">
+                <i class="bi bi-gear-fill"></i> Configure
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+</div>
+<div class="modal fade" id="globalParamModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark text-white border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title" id="modalMachineName">Machine Logs</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="modalLoading" class="text-center d-none">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+                <table class="table table-dark table-hover mb-0" id="modalTable">
+                    <thead>
+                        <tr>
+                            <th>Parameter</th>
+                            <th class="text-end">Current Value</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alarmModalBody">
+                        </tbody>
+                </table>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="globalAlarmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark text-white border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title" id="alarmModalMachineName">Machine Logs</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="modalLoading" class="text-center d-none">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+                <div class="alarm-list">
+                </div>
+                
+                <table class="table table-dark table-hover mb-0" id="modalTable">
+                    <thead>
+                        <tr>
+                            <th>Alarm</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alarmModalBody">
+                        </tbody>
+                </table>
+                
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // This converts the Python string into a real JavaScript Object
+const machineRegistry = {{ machines_json|safe }};
+
+function filterMachines(query) {
+    const cards = document.querySelectorAll('.micro-card');
+    query = query.toLowerCase();
+    
+    cards.forEach(card => {
+        const name = card.querySelector('.micro-title').innerText.toLowerCase();
+        if (name.includes(query)) {
+            card.style.display = "flex";
+        } else {
+            card.style.display = "none";
+        }
+    });
+}
+
+function toggleCriticalOnly() {
+    const cards = document.querySelectorAll('.micro-card');
+    cards.forEach(card => {
+        if (!card.classList.contains('alarm-critical')) {
+            card.style.display = (card.style.display === "none") ? "flex" : "none";
+        }
+    });
+}
+
+// 1. Theme Toggle Function
+function toggleTheme() {
+    document.body.classList.toggle('light-mode');
+    const isLight = document.body.classList.contains('light-mode');
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+}
+
+// 2. Initialize Parameters Rotation
+document.addEventListener('DOMContentLoaded', () => {
+    // Load saved theme
+    if (localStorage.getItem('theme') === 'light') {
+        document.body.classList.add('light-mode');
+    }
+
+    const holders = document.querySelectorAll('.param-holder');
+    const machineStates = Array.from(holders).map(holder => ({
+        params: holder.querySelectorAll('.rotating-param'),
+        pageIndex: 0
+    }));
+
+    function cycleAll() {
+        machineStates.forEach(state => {
+            const { params, pageIndex } = state;
+            if (params.length === 0) return;
+
+            // Clear previous
+            params.forEach(p => p.classList.remove('active', 'pos-1', 'pos-2'));
+
+            // Show pair
+            const start = pageIndex * 2;
+            if (params[start]) params[start].classList.add('active', 'pos-1');
+            if (params[start + 1]) params[start + 1].classList.add('active', 'pos-2');
+
+            // Increment
+            state.pageIndex = (start + 2 >= params.length) ? 0 : pageIndex + 1;
+        });
+    }
+
+    cycleAll();
+    setInterval(cycleAll, 1000); // 1 Second Interval
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    const holders = document.querySelectorAll('.param-holder');
+    
+    const machineStates = Array.from(holders).map(holder => ({
+        element: holder,
+        params: holder.querySelectorAll('.rotating-param'),
+        pageIndex: 0
+    }));
+
+    function cycleParameters() {
+        machineStates.forEach(state => {
+            const { params, pageIndex } = state;
+            if (params.length === 0) return;
+
+            // 1. Remove active and position classes from everything
+            params.forEach(p => {
+                p.classList.remove('active', 'pos-1', 'pos-2');
+            });
+
+            // 2. Identify the pair to show
+            const start = state.pageIndex * 2;
+            
+            // Show first item in pair
+            if (params[start]) {
+                params[start].classList.add('active', 'pos-1');
+            }
+
+            // Show second item in pair (if it exists)
+            if (params[start + 1]) {
+                params[start + 1].classList.add('active', 'pos-2');
+            }
+
+            // 3. Increment page or reset
+            if ((start + 2) >= params.length) {
+                state.pageIndex = 0;
+            } else {
+                state.pageIndex++;
+            }
+        });
+    }
+
+    // Run once immediately
+    cycleParameters();
+
+    // 1000ms (1 second) interval
+    setInterval(cycleParameters, 2000);
+});
+
+function openAlarmModel(machineId){
+    // 1. Find the specific machine from our registry using the ID
+    const machine = machineRegistry.find(m => m.id === machineId);
+    
+    if (!machine) return;
+
+    // 2. Get the modal elements
+    const alarmModalBody = document.getElementById('alarmModalBody');
+    const modalTitle = document.getElementById('alarmModalMachineName');
+    
+    // 3. Clear and Fill
+    alarmModalBody.innerHTML = '';
+    modalTitle.innerText = `Detailed Alarms: ${machine.name}`;
+
+    // 2. Check if there are any alarms at all
+    if (machine.alarms && machine.alarms.length > 0) {
+        
+        // 3. Loop through each alarm (p)
+        machine.alarms.forEach(p => {
+            // Determine the color class based on priority using a Ternary Operator
+            const dotClass = (p.priority === 'critical') ? 'bg-danger' : 'bg-warning';
+
+            const row = `
+                <div class="mb-2 border-bottom border-secondary pb-1 d-flex justify-content-between">
+                    <span>
+                        <span class="priority-dot ${dotClass}"></span>
+                        ${p.msg}
+                    </span>
+                    <span class="text-muted small">${p.time}</span>
+                </div>
+            `;
+            
+            alarmModalBody.innerHTML += row;
+        });
+
+    } else {
+        // 4. Logic for "No Alarms" must be OUTSIDE the loop
+        alarmModalBody.innerHTML = `
+            <span class="text-success small">
+                <i class="bi bi-check-circle me-1"></i> No active alarms
+            </span>
+        `;
+    }
+
+    // 4. Show the modal
+    const modalInstance = new bootstrap.Modal(document.getElementById('globalAlarmModal'));
+    modalInstance.show();
+}
+
+function openParamModal(machineId) {
+    // 1. Find the specific machine from our registry using the ID
+    const machine = machineRegistry.find(m => m.id === machineId);
+    
+    if (!machine) return;
+
+    // 2. Get the modal elements
+    const modalBody = document.getElementById('alarmModalBody');
+    const modalTitle = document.getElementById('modalMachineName');
+    
+    // 3. Clear and Fill
+    modalBody.innerHTML = '';
+    modalTitle.innerText = `Detailed Params: ${machine.name}`;
+
+    machine.parameters.forEach(p => {
+        const row = `
+            <tr>
+                <td class="text-secondary">${p.label}</td>
+                <td class="text-end fw-bold text-info">${p.value} ${p.unit || ''}</td>
+            </tr>
+        `;
+        modalBody.innerHTML += row;
+    });
+
+    // 4. Show the modal
+    const modalInstance = new bootstrap.Modal(document.getElementById('globalParamModal'));
+    modalInstance.show();
+}
+</script>
+
+</body>
+</html>
