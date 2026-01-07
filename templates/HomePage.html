@@ -43,14 +43,14 @@
         }
 
         .param-holder {
-            height: 50%;
+            height: 100%;
         }
 
         .param-box {
-            background: rgba(0,0,0,0.2);
-            padding: 5px 10px;
-            border-radius: 8px;
-            margin-bottom: 5px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 2px 5px;
+            border-radius: 5px;
+            margin-bottom: 2px;
         }
 
         .alarm-list {
@@ -101,7 +101,17 @@
         }
 
         /* Smaller font for high density */
+        
         .micro-title {
+            font-size: 1rem;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #f8fafc;
+        }
+
+        .nano-title {
             font-size: 0.75rem;
             font-weight: 700;
             white-space: nowrap;
@@ -133,7 +143,7 @@
 
     <div class="compact-grid">
     {% for m in machines %}
-    <div class="micro-card {% if m.highest_alarm_priority == 1 %}alarm-critical{% elif m.highest_alarm_priority == 2 %}alarm-warning{% endif %}">
+    <div class="micro-card {{ m.alarm_css_class }}">
         
         <div class="d-flex justify-content-between align-items-center mb-1">
             <span class="micro-title">{{ m.name }}</span>
@@ -141,7 +151,7 @@
         </div>
 
         <div class="py-1 param-holder">
-            {% for p in m.parameters|slice:":2" %}
+            {% for p in m.parameters %}
             <div class="param-box d-flex justify-content-between align-items-center">
                 <span class="micro-param">{{ p.label }}</span>
                 <span class="micro-value">{{ p.value }}{{ p.unit|default:"" }}</span>
@@ -150,12 +160,13 @@
         </div>
 
         <div class="d-flex justify-content-between align-items-center">
-            {% if m.parameters|length > 2 %}
+            {% if m.parameters|length > 10 %}
             <div class="d-flex align-items-center">
                 <a href="javascript:void(0)" 
                     onclick="openParamModal({{ m.id }})" 
                     class="text-primary micro-param fw-bold text-decoration-none hover-underline">
-                    + {{ m.parameters|length|add:"-2" }} more...
+                    <!-- + {{ m.parameters|length|add:"-2" }} more params... -->
+                    + See more params...
                 </a>
             </div>
             {% endif %}
@@ -181,80 +192,13 @@
             <!-- <a href="javascript:void(0)" onclick="openLogModal({{ m.id }})" class="text-info small">
                 <i class="bi bi-list-ul"></i>
             </a> -->
-            <a href="{% url 'machine_config' m.id %}" class="text-primary micro-param">
+            <a href="{% url 'machine_config' m.id %}" class="text-primary nano-title ">
                 <i class="bi bi-gear-fill"></i> Configure
             </a>
         </div>
     </div>
     {% endfor %}
 </div>
-
-    <!-- <div class="row g-4">
-        {% for m in machines %}
-        <div class="col-md-6 col-lg-4 col-xl-3">
-            <div class="machine-card 
-                {% if m.highest_alarm_priority == 1 %}alarm-critical
-                {% elif m.highest_alarm_priority == 2 %}alarm-warning
-                {% endif %}">
-                
-                <div class="d-flex justify-content-between mb-3">
-                    <h5 class="fw-bold m-0">{{ m.name }}</h5>
-                    <span class="badge {% if m.highest_alarm_priority == 1 %}bg-danger{% else %}bg-dark{% endif %}">
-                        {{ m.status }}
-                    </span>
-                </div>
-
-                <div class="mb-4">
-                    <h6 class="text-secondary small text-uppercase fw-bold mb-2">Parameters</h6>
-                    {% for p in m.parameters|slice:":3" %}
-                    <div class="param-box d-flex justify-content-between align-items-center">
-                        <span class="small text-muted">{{ p.label }}</span>
-                        <span class="fw-bold text-info">{{ p.value }} <small>{{ p.unit|default:"" }}</small></span>
-                    </div>
-                    {% endfor %}
-                    {% if m.parameters|length > 3 %}
-                    <div class="text-center mt-2">
-                        <a href="javascript:void(0)" 
-                        onclick="openLogModal({{ m.id }})" 
-                        class="text-primary small fw-bold text-decoration-none hover-underline">
-                        + {{ m.parameters|length|add:"-3" }} More Parameters...
-                        </a>
-                    </div>
-                    {% endif %}
-                </div>
-
-                <div>
-                    <h6 class="text-secondary small text-uppercase fw-bold mb-2">Recent Alarms ({{ m.alarms|length }})</h6>
-                    <div class="alarm-list">
-                        {% if m.alarms %}
-                            {% for a in m.alarms %}
-                            <div class="mb-2 border-bottom border-secondary pb-1 d-flex justify-content-between">
-                                <span>
-                                    <span class="priority-dot {% if a.priority == 'critical' %}bg-danger{% else %}bg-warning{% endif %}"></span>
-                                    {{ a.msg }}
-                                </span>
-                                <span class="text-muted small">{{ a.time }}</span>
-                            </div>
-                            {% endfor %}
-                        {% else %}
-                            <span class="text-success small"><i class="bi bi-check-circle me-1"></i> No active alarms</span>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <div class="mt-3 pt-3 border-top d-flex gap-2">
-                    <button class="btn btn-sm btn-outline-info w-100" onclick="openLogModal({{ m.id }})" id="btn-{{ m.id }}">
-                        <i class="bi bi-clock-history"></i> Logs
-                    </button>
-                    <a  class="btn btn-sm btn-primary w-100">
-                        <i class="bi bi-gear"></i> Config
-                    </a>
-                </div>
-
-            </div>
-        </div>
-        {% endfor %}
-    </div> -->
 </div>
 <div class="modal fade" id="globalParamModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -274,7 +218,7 @@
                             <th class="text-end">Current Value</th>
                         </tr>
                     </thead>
-                    <tbody id="alarmModalBody">
+                    <tbody id="paramModalBody">
                         </tbody>
                 </table>
             </div>
@@ -295,8 +239,8 @@
                 <div id="modalLoading" class="text-center d-none">
                     <div class="spinner-border text-primary" role="status"></div>
                 </div>
-                <div class="alarm-list">
-                </div>
+                <!-- <div class="alarm-list">
+                </div> -->
                 
                 <table class="table table-dark table-hover mb-0" id="modalTable">
                     <thead>
@@ -326,7 +270,7 @@ function filterMachines(query) {
     query = query.toLowerCase();
     
     cards.forEach(card => {
-        const name = card.querySelector('.micro-title').innerText.toLowerCase();
+        const name = card.querySelector('.nano-title').innerText.toLowerCase();
         if (name.includes(query)) {
             card.style.display = "flex";
         } else {
@@ -360,31 +304,31 @@ function openAlarmModel(machineId){
 
     // 2. Check if there are any alarms at all
     if (machine.alarms && machine.alarms.length > 0) {
-        
+        console.log("inside of the condition ",machine.alarms)
         // 3. Loop through each alarm (p)
         machine.alarms.forEach(p => {
+            console.log('the p is ',p)
             // Determine the color class based on priority using a Ternary Operator
             const dotClass = (p.priority === 'critical') ? 'bg-danger' : 'bg-warning';
 
             const row = `
-                <div class="mb-2 border-bottom border-secondary pb-1 d-flex justify-content-between">
-                    <span>
+                <tr >
+                    <td>
                         <span class="priority-dot ${dotClass}"></span>
                         ${p.msg}
-                    </span>
-                    <span class="text-muted small">${p.time}</span>
-                </div>
+                    </td>
+                    <td>${p.time}</td>
+                </tr>
             `;
-            
             alarmModalBody.innerHTML += row;
         });
-
+        console.log(alarmModalBody)
     } else {
         // 4. Logic for "No Alarms" must be OUTSIDE the loop
         alarmModalBody.innerHTML = `
-            <span class="text-success small">
+            <tr><td >
                 <i class="bi bi-check-circle me-1"></i> No active alarms
-            </span>
+            </td></tr>
         `;
     }
 
@@ -400,7 +344,7 @@ function openParamModal(machineId) {
     if (!machine) return;
 
     // 2. Get the modal elements
-    const modalBody = document.getElementById('alarmModalBody');
+    const modalBody = document.getElementById('paramModalBody');
     const modalTitle = document.getElementById('modalMachineName');
     
     // 3. Clear and Fill
